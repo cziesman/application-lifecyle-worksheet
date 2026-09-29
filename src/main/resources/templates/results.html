@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title th:text="${selectedApplication.abbreviation + ' Story Results'}">APP1 Story Results</title><link href="/css/app.css" rel="stylesheet">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <a href="/onboarding" class="brand-logo-link"><img src="/images/redhat-hat.svg" class="brand-logo" alt="Red Hat"></a>
+    <div><strong>Application Lifecycle</strong><span>Application Onboarding &amp; Migration Worksheet</span></div>
+  </div>
+  <nav class="nav" aria-label="Worksheet sections">
+    <a th:each="item : ${navigation}" th:href="@{/{key}(key=${item.key})}" th:text="${item.label}" th:classappend="${item.key == page.key ? ' active' : ''}">Onboarding</a>
+    <form action="/application" method="post" class="application-selector">
+      <input type="hidden" name="page" th:value="${page.key}">
+      <label for="applicationSelect">Application</label>
+      <select id="applicationSelect" name="abbreviation" onchange="this.form.submit()">
+        <option th:each="app : ${applications}" th:value="${app.abbreviation}" th:text="${app.name + ' (' + app.abbreviation + ')'}" th:selected="${app.abbreviation == selectedApplication.abbreviation}">Generic App 1 (APP1)</option>
+      </select>
+    </form>
+  </nav>
+</header>
+<main class="page">
+  <div class="intro">
+    <div>
+      <div class="eyebrow" th:text="${selectedApplication.name}">Generic App 1</div>
+      <h1>Applicable stories</h1>
+      <p><strong th:text="${stories.size()}">0</strong> of <strong th:text="${allStories.size()}">0</strong> stories on this page are selected for this application.</p>
+    </div>
+  </div>
+
+  <section class="card">
+    <div class="result-actions">
+      <a class="secondary" th:href="@{/{key}(key=${page.key})}">Edit answers</a>
+      <form action="/download" method="post">
+        <input type="hidden" name="page" th:value="${page.key}">
+        <input type="hidden" name="issueType" th:value="${exportOptions.issueType}">
+        <input type="hidden" name="priority" th:value="${exportOptions.priority}">
+        <input type="hidden" name="components" th:value="${exportOptions.components}">
+        <input type="hidden" name="labels" th:value="${exportOptions.labels}">
+        <input type="hidden" name="featureLink" th:value="${exportOptions.featureLink}">
+        <input type="hidden" name="fixVersions" th:value="${exportOptions.fixVersions}">
+        <input type="hidden" name="reporter" th:value="${exportOptions.reporter}">
+        <input type="hidden" name="filename" th:value="${selectedApplication.abbreviation.toLowerCase() + '-' + page.key + '-stories.csv'}">
+        <div th:each="e : ${form.answers}"><input type="hidden" th:name="${e.key}" th:value="${e.value}"></div>
+        <button class="primary" type="submit">Download CSV</button>
+      </form>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Story</th><th>Title</th><th>Applicability</th><th>Selection reason</th><th>Story Points</th><th>Data fields</th></tr></thead>
+        <tbody>
+          <tr th:each="s : ${stories}">
+            <td class="key" th:text="${s.key}">GEN-01</td>
+            <td th:text="${s.summary}">Discovery Session</td>
+            <td th:text="${s.applicability}">Always</td>
+            <td th:text="${s.selectionReason}">Always applicable</td>
+            <td th:text="${s.storyPoints}">3</td>
+            <td class="desc" th:text="${s.fieldNames}">Fields</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>CSV export preview</h2>
+    <p class="help">The downloaded CSV contains exactly these Jira import columns. Values entered in the generation dialog apply to every row in this phase.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Issue Type</th><th>Summary</th><th>Description</th><th>Acceptance Criteria</th><th>Priority</th><th>Components</th><th>Labels</th><th>Feature Link</th><th>Fix Version/s</th><th>Reporter</th><th>Story Points</th></tr></thead>
+        <tbody><tr th:each="row : ${exportRows}">
+          <td th:text="${row.issueType}">Story</td><td th:text="${row.summary}">APP1-01 - Discovery Session</td>
+          <td class="desc" th:text="${row.description}">Description</td><td class="desc" th:text="${row.acceptanceCriteria}">Acceptance Criteria</td>
+          <td th:text="${row.priority}">Medium</td><td th:text="${row.components}">Application Platform</td><td th:text="${row.labels}">application-lifecycle</td>
+          <td th:text="${row.featureLink}">Application Lifecycle Migration</td><td th:text="${row.fixVersions}">Next Release</td><td th:text="${row.reporter}">application-team</td><td th:text="${row.storyPoints}">3</td>
+        </tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Story selection for this page</h2>
+    <p class="help">Conditional applicability is evaluated from the answers on this page. Stories marked Always remain selected.</p>
+    <table>
+      <thead><tr><th>Story</th><th>Title</th><th>Selected</th><th>Worksheet applicability</th></tr></thead>
+      <tbody>
+        <tr th:each="s : ${allStories}">
+          <td class="key" th:text="${s.id}">GEN-05</td>
+          <td th:text="${s.name}">Operator / Platform-Service Dependencies</td>
+          <td th:text="${@storySelectionService.applicable(s.id,form,selectedApplication.abbreviation) ? 'Yes' : 'No'}">No</td>
+          <td th:text="${s.applicability}">Conditional</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+</main>
+</body>
+</html>

@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gen-application-onboarding
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gen-application-onboarding
+  template:
+    metadata:
+      labels:
+        app: gen-application-onboarding
+    spec:
+      containers:
+        - name: application
+          image: image-registry.openshift-image-registry.svc:5000/CHANGE-ME/gen-application-onboarding:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: APPLICATION_CATALOG
+              value: file:/etc/gen-application-onboarding/applications/applications.json
+            - name: STORY_EXPORT_CONFIG
+              value: file:/etc/gen-application-onboarding/applications/story-export.properties
+          volumeMounts:
+            - name: application-config
+              mountPath: /etc/gen-application-onboarding/applications
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /onboarding
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /onboarding
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: application-config
+          configMap:
+            name: gen-application-onboarding-config

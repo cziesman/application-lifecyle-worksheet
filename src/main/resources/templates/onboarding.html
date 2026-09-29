@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title th:text="${page.title + ' | GEN Application Lifecycle'}">GEN Application Lifecycle</title>
+<link href="/css/app.css" rel="stylesheet">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <a href="/onboarding" class="brand-logo-link"><img src="/images/redhat-hat.svg" class="brand-logo" alt="Red Hat"></a>
+    <div><strong>Application Lifecycle</strong><span>Application Onboarding &amp; Migration Worksheet</span></div>
+  </div>
+  <nav class="nav" aria-label="Worksheet sections">
+    <a th:each="item : ${navigation}"
+       th:href="@{/{key}(key=${item.key})}"
+       th:text="${item.label}"
+       th:classappend="${item.key == page.key ? ' active' : ''}">Onboarding</a>
+    <form action="/application" method="post" class="application-selector">
+      <input type="hidden" name="page" th:value="${page.key}">
+      <label for="applicationSelect">Application</label>
+      <select id="applicationSelect" name="abbreviation" onchange="this.form.submit()">
+        <option th:each="app : ${applications}"
+                th:value="${app.abbreviation}"
+                th:text="${app.name + ' (' + app.abbreviation + ')'}"
+                th:selected="${app.abbreviation == selectedApplication.abbreviation}">Generic App 1 (APP1)</option>
+      </select>
+    </form>
+  </nav>
+</header>
+
+<main class="page">
+  <div class="intro">
+    <div>
+      <h1 th:text="${page.title}">Application onboarding</h1>
+      <p th:if="${page.key == 'onboarding'}">Capture the application onboarding information from the onboarding stories for the selected application.</p>
+      <p th:if="${page.key == 'deployment'}">Capture deployment-time validation and evidence from the deployment stories for the selected application.</p>
+      <p th:if="${page.key == 'ha-recovery'}">Capture high-availability and recovery validation from the HA and recovery stories for the selected application.</p>
+      <p th:if="${page.key == 'promotion'}">Capture production promotion, cutover, ownership, monitoring, hypercare, and closure from the promotion and operations stories for the selected application.</p>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <button type="button" class="secondary" onclick="saveAnswersToFile(this)">Save this page</button>
+    <button type="button" class="secondary" onclick="document.getElementById('loadAnswersFile').click()">Load saved answers</button>
+    <input id="loadAnswersFile" type="file" accept="application/json,.json" hidden onchange="loadAnswersFromFile(this)">
+    <button type="button" class="secondary" onclick="clearAnswers()">Clear answers</button>
+    <button type="button" class="generate-story-button" onclick="openExportDialog()">Generate application stories</button>
+    <span id="saveStatus" class="save-status" hidden></span>
+  </div>
+
+  <form action="/generate" method="post" id="worksheetForm">
+    <input type="hidden" name="page" th:value="${page.key}">
+
+    <div th:each="story : ${worksheetStories}" class="card story-card"
+         th:attr="data-story=${story.id},data-applicability=${story.applicability}">
+      <div class="story-heading">
+        <div>
+          <h3><span th:text="${story.id}">APP1-01</span></h3>
+          <h2><span th:text="${story.name}">Discovery Session</span></h2>
+        </div>
+        <span class="badge" th:text="${story.applicability}">Always</span>
+      </div>
+
+      <div class="field-grid">
+        <div th:each="field : ${story.fields}" class="field">
+          <label th:if="${field.responseType != '[Y/N]'}" th:for="${story.id + '__' + field.name}" th:text="${field.name}" th:title="${field.prompt}">Field</label>
+          <div th:switch="${field.responseType}">
+            <div th:case="'[Y/N]'" class="checkbox-field">
+              <input type="hidden" th:name="${'answers[' + story.id + '::' + field.name + ']'}" value="N">
+              <input type="checkbox" th:id="${story.id + '__' + field.name}" th:title="${field.prompt}" value="Y" th:data-answer-name="${'answers[' + story.id + '::' + field.name + ']'}">
+              <label class="checkbox-label" th:for="${story.id + '__' + field.name}" th:text="${field.name}">Field</label>
+            </div>
+            <select th:case="'[Pass/Fail]'" th:name="${'answers[' + story.id + '::' + field.name + ']'}" th:id="${story.id + '__' + field.name}" th:title="${field.prompt}"><option value="">— Select —</option><option value="Pass">Pass</option><option value="Fail">Fail</option></select>
+            <select th:case="'[Pass/Block]'" th:name="${'answers[' + story.id + '::' + field.name + ']'}" th:id="${story.id + '__' + field.name}" th:title="${field.prompt}"><option value="">— Select —</option><option value="Pass">Pass</option><option value="Block">Block</option></select>
+            <select th:case="'[Pass/Fail/N/A]'" th:name="${'answers[' + story.id + '::' + field.name + ']'}" th:id="${story.id + '__' + field.name}" th:title="${field.prompt}"><option value="">— Select —</option><option value="Pass">Pass</option><option value="Fail">Fail</option><option value="N/A">N/A</option></select>
+            <select th:case="'[JVM / Node.js / Other]'" th:name="${'answers[' + story.id + '::' + field.name + ']'}" th:id="${story.id + '__' + field.name}" th:title="${field.prompt}"><option value="">— Select —</option><option value="JVM">JVM</option><option value="Node.js">Node.js</option><option value="Other">Other</option></select>
+            <select th:case="'[Data/Security Classification]'" th:name="${'answers[' + story.id + '::' + field.name + ']'}" th:id="${story.id + '__' + field.name}" th:title="${field.prompt}"><option value="">— Select —</option><option th:each="value : ${dataSecurityClassifications}" th:value="${value}" th:text="${value}"></option></select>
+            <th:block th:case="'[Target Environment(s)]'">
+              <select multiple size="4" th:id="${story.id + '__' + field.name}" th:title="${field.prompt}" th:data-answer-name="${'answers[' + story.id + '::' + field.name + ']'}">
+                <option th:each="value : ${targetEnvironments}" th:value="${value}" th:text="${value}"></option>
+              </select>
+              <input type="hidden" th:name="${'answers[' + story.id + '::' + field.name + ']'}" th:id="${story.id + '__' + field.name + '__value'}" value="">
+            </th:block>
+            <select th:case="'[Scaling Approach]'" th:name="${'answers[' + story.id + '::' + field.name + ']'}" th:id="${story.id + '__' + field.name}" th:title="${field.prompt}"><option value="">— Select —</option><option th:each="value : ${scalingApproaches}" th:value="${value}" th:text="${value}"></option></select>
+            <input th:case="'[Date]'" type="date" th:name="${'answers[' + story.id + '::' + field.name + ']'}" th:id="${story.id + '__' + field.name}" th:title="${field.prompt}">
+            <input th:case="'[Date/Time]'" type="datetime-local" th:name="${'answers[' + story.id + '::' + field.name + ']'}" th:id="${story.id + '__' + field.name}" th:title="${field.prompt}">
+            <input th:case="'[URL]'" type="url" th:name="${'answers[' + story.id + '::' + field.name + ']'}" th:id="${story.id + '__' + field.name}" th:title="${field.prompt}">
+            <textarea th:case="'[Free text]'" rows="3" th:name="${'answers[' + story.id + '::' + field.name + ']'}" th:id="${story.id + '__' + field.name}" th:title="${field.prompt}"></textarea>
+            <textarea th:case="'[Free text / None]'" rows="3" th:name="${'answers[' + story.id + '::' + field.name + ']'}" th:id="${story.id + '__' + field.name}" th:title="${field.prompt}"></textarea>
+            <textarea th:case="'[Free text / Link]'" rows="3" th:name="${'answers[' + story.id + '::' + field.name + ']'}" th:id="${story.id + '__' + field.name}" th:title="${field.prompt}"></textarea>
+            <textarea th:case="'[URL / Free text]'" rows="3" th:name="${'answers[' + story.id + '::' + field.name + ']'}" th:id="${story.id + '__' + field.name}" th:title="${field.prompt}"></textarea>
+            <input th:case="*" type="text" th:name="${'answers[' + story.id + '::' + field.name + ']'}" th:id="${story.id + '__' + field.name}" th:title="${field.prompt}">
+          </div>
+          <div class="help" th:if="${field.prompt != null}" th:text="${field.prompt}">Prompt</div>
+          <div class="notes" th:if="${field.notes != null and !#strings.isEmpty(field.notes)}" th:text="${'Note: ' + field.notes}">Notes</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button class="generate-story-button" type="button" onclick="openExportDialog()">Generate application stories</button>
+    </div>
+  </form>
+</main>
+<div id="exportDialog" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="exportDialogTitle">
+  <div class="modal-backdrop" onclick="closeExportDialog()"></div>
+  <div class="modal-panel">
+    <div class="modal-header">
+      <div>
+        <div class="eyebrow">CSV export</div>
+        <h2 id="exportDialogTitle">Generate application stories</h2>
+        <p class="modal-subtitle">The selected values below are applied to every generated story for <strong th:text="${page.label}">Onboarding</strong>.</p>
+      </div>
+      <button type="button" class="modal-close" onclick="closeExportDialog()" aria-label="Close">×</button>
+    </div>
+
+    <form id="exportForm" action="/generate" method="post">
+      <input type="hidden" name="page" th:value="${page.key}">
+      <div id="exportAnswers"></div>
+      <div class="export-grid">
+        <div class="field">
+          <label for="issueType">Issue Type</label>
+          <select id="issueType" name="issueType" required>
+            <option th:each="value : ${exportIssueTypes}" th:value="${value}" th:text="${value}" th:selected="${value == exportDefaults.issueType}">Story</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="priority">Priority</label>
+          <select id="priority" name="priority" required>
+            <option th:each="value : ${exportPriorities}" th:value="${value}" th:text="${value}" th:selected="${value == exportDefaults.priority}">Medium</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="components">Components</label>
+          <select id="components" name="components" required>
+            <option th:each="value : ${exportComponents}" th:value="${value}" th:text="${value}" th:selected="${value == exportDefaults.components}">Application Platform</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="labels">Labels</label>
+          <input id="labels" name="labels" type="text" th:value="${exportDefaults.labels}" placeholder="application-lifecycle; onboarding" required>
+          <div class="help">Enter multiple labels with semicolons. Commas are converted to semicolons for CSV/Jira-friendly output.</div>
+        </div>
+        <div class="field">
+          <label for="featureLink">Feature Link</label>
+          <select id="featureLink" name="featureLink" required>
+            <option th:each="value : ${exportFeatureLinks}" th:value="${value}" th:text="${value}" th:selected="${value == exportDefaults.featureLink}">APP-LIFECYCLE-FEATURE</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="fixVersions">Fix Version/s</label>
+          <select id="fixVersions" name="fixVersions" required>
+            <option th:each="value : ${exportFixVersions}" th:value="${value}" th:text="${value}" th:selected="${value == exportDefaults.fixVersions}">Next Release</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="reporter">Reporter</label>
+          <input id="reporter" name="reporter" type="text" th:value="${exportDefaults.reporter}" placeholder="Jira username or account name" required>
+        </div>
+      </div>
+
+      <div class="generated-fields">
+        <strong>Generated automatically</strong>
+        <span>Summary</span>
+        <span>Description</span>
+        <span>Acceptance Criteria</span>
+        <span>Story Points — estimated from the worksheet story definition using Fibonacci sizing</span>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="secondary" onclick="closeExportDialog()">Cancel</button>
+        <button type="submit" class="generate-story-button">Generate application stories</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script th:inline="javascript">
+const form = document.getElementById('worksheetForm');
+const exportDialog = document.getElementById('exportDialog');
+const exportForm = document.getElementById('exportForm');
+const exportAnswers = document.getElementById('exportAnswers');
+
+function openExportDialog() {
+  exportDialog.hidden = false;
+  document.body.classList.add('modal-open');
+  document.getElementById('issueType').focus();
+}
+
+function closeExportDialog() {
+  exportDialog.hidden = true;
+  document.body.classList.remove('modal-open');
+}
+
+exportForm.addEventListener('submit', () => {
+  exportAnswers.innerHTML = '';
+  syncMultiSelectAnswers();
+  form.querySelectorAll('input,select,textarea').forEach(e => {
+    const answerName = e.dataset.answerName || e.name;
+    if (!answerName || !answerName.startsWith('answers[')) return;
+    if (e.type === 'checkbox') return;
+    if (e.type === 'hidden' && e.id.endsWith('__value')) return;
+    if (e.type === 'hidden' && form.querySelector('input[type="checkbox"][data-answer-name="' + CSS.escape(answerName) + '"]')) {
+      const checkbox = form.querySelector('input[type="checkbox"][data-answer-name="' + CSS.escape(answerName) + '"]');
+      e.value = checkbox.checked ? 'Y' : 'N';
+    }
+    const hidden = document.createElement('input');
+    hidden.type = 'hidden';
+    hidden.name = answerName;
+    hidden.value = e.multiple ? Array.from(e.selectedOptions).map(option => option.value).join(',') : e.value;
+    exportAnswers.appendChild(hidden);
+  });
+});
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !exportDialog.hidden) closeExportDialog(); });
+function populateAnswers(answers) {
+  form.querySelectorAll('input,select,textarea').forEach(e => {
+    const answerName = e.dataset.answerName || e.name;
+    if (!answerName || !answerName.startsWith('answers[')) return;
+    if (!Object.prototype.hasOwnProperty.call(answers, answerName)) return;
+    if (e.type === 'checkbox') {
+      e.checked = /^(y|yes|true)$/i.test(answers[answerName]);
+    } else if (e.multiple) {
+      const values = String(answers[answerName] || '').split(/\s*[,;]\s*/).filter(Boolean);
+      e.querySelectorAll('option').forEach(option => option.selected = values.includes(option.value));
+    } else {
+      e.value = answers[answerName];
+    }
+  });
+  syncMultiSelectAnswers();
+}
+
+const pageKey = /*[[${page.key}]]*/ 'onboarding';
+const storyPrefix = /*[[${selectedApplication.abbreviation}]]*/ 'APP1';
+
+function currentAnswers() {
+  const answers = {};
+  syncMultiSelectAnswers();
+  form.querySelectorAll('input,select,textarea').forEach(e => {
+    const answerName = e.dataset.answerName || e.name;
+    if (!answerName || !answerName.startsWith('answers[')) return;
+    if (e.type === 'checkbox') answers[answerName] = e.checked ? 'Y' : 'N';
+    else if (!Object.prototype.hasOwnProperty.call(answers, answerName)) answers[answerName] = e.multiple ? Array.from(e.selectedOptions).map(option => option.value).join(',') : e.value;
+  });
+  return answers;
+}
+
+function saveAnswersToFile(button) {
+  const payload = {
+    version: 1,
+    application: storyPrefix,
+    page: pageKey,
+    savedAt: new Date().toISOString(),
+    answers: currentAnswers()
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = storyPrefix + '-' + pageKey + '-answers.json';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  const status = document.getElementById('saveStatus');
+  status.textContent = 'Answers saved to a local JSON file.';
+  status.hidden = false;
+}
+
+function loadAnswersFromFile(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const payload = JSON.parse(reader.result);
+      if (payload.application && payload.application !== storyPrefix) {
+        throw new Error('This file belongs to ' + payload.application + ', not ' + storyPrefix + '.');
+      }
+      if (payload.page && payload.page !== pageKey) {
+        throw new Error('This file belongs to the ' + payload.page + ' page, not ' + pageKey + '.');
+      }
+      populateAnswers(payload.answers || payload);
+      updateConditionalVisibility();
+      const status = document.getElementById('saveStatus');
+      status.textContent = 'Answers loaded from the local JSON file.';
+      status.hidden = false;
+    } catch (e) {
+      alert('Unable to load answers: ' + e.message);
+    } finally {
+      input.value = '';
+    }
+  };
+  reader.readAsText(file);
+}
+
+function syncMultiSelectAnswers() {
+  form.querySelectorAll('select[multiple][data-answer-name]').forEach(select => {
+    const hiddenId = select.id + '__value';
+    const hidden = document.getElementById(hiddenId);
+    if (hidden) hidden.value = Array.from(select.selectedOptions).map(option => option.value).join(',');
+  });
+}
+
+function clearAnswers() {
+  if (!confirm('Clear all answers on this page?')) return;
+  form.querySelectorAll('input,select,textarea').forEach(e => {
+    const answerName = e.dataset.answerName || e.name;
+    if (!answerName || !answerName.startsWith('answers[')) return;
+    if (e.type === 'checkbox' || e.type === 'radio') e.checked = false;
+    else if (e.multiple) e.querySelectorAll('option').forEach(option => option.selected = false);
+    else e.value = '';
+  });
+  syncMultiSelectAnswers();
+  updateConditionalVisibility();
+  const status = document.getElementById('saveStatus');
+  status.textContent = 'Answers cleared from this page. No local file was changed.';
+  status.hidden = false;
+}
+
+function val(story, field) {
+  const key = 'answers[' + story + '::' + field + ']';
+  const e = form.querySelector('[name="' + CSS.escape(key) + '"]');
+  return e ? e.value : '';
+}
+
+function yes(story, field) {
+  return /^(y|yes|true)$/i.test(val(story, field));
+}
+
+function updateConditionalVisibility() {
+  const id = n => storyPrefix + '-' + n;
+  const rules = {
+    [id('05')]: () => yes(id('05'), 'Applicable') || !!val(id('04'), 'Required Operators'),
+    [id('06')]: () => yes(id('05'), 'Applicable') || !!val(id('04'), 'Required Operators'),
+    [id('09')]: () => val(id('07'), 'Runtime Type').toLowerCase() === 'node.js',
+    [id('12')]: () => val(id('07'), 'Runtime Type').toLowerCase() === 'node.js',
+    [id('13')]: () => val(id('07'), 'Runtime Type').toLowerCase() === 'node.js',
+    [id('14')]: () => true,
+    [id('15')]: () => ['JVM', 'Node.js'].some(x => val(id('07'), 'Runtime Type').toLowerCase() === x.toLowerCase()),
+    [id('22')]: () => ['JVM', 'Node.js'].some(x => val(id('22'), 'Runtime Type').toLowerCase() === x.toLowerCase()),
+    [id('31')]: () => yes(id('31'), 'Multi-Zone Applicability Confirmed'),
+    [id('33')]: () => yes(id('33'), 'Dependency Applicability Confirmed')
+  };
+  form.querySelectorAll('.story-card').forEach(card => {
+    const id = card.dataset.story;
+    if (rules[id]) card.hidden = !rules[id]();
+  });
+}
+
+form.addEventListener('change', () => { syncMultiSelectAnswers(); updateConditionalVisibility(); });
+updateConditionalVisibility();
+</script>
+</body>
+</html>
