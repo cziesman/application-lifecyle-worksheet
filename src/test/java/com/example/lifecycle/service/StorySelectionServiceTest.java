@@ -91,7 +91,7 @@ class StorySelectionServiceTest {
         var stories = service.select(f, WorksheetCatalog.STORIES.subList(0, 1), "APP1");
         var rows = service.exportRows(stories, WorksheetCatalog.STORIES.subList(0, 1), f, "APP1", options, "Generic App 1", "Onboarding");
         var csv = service.csv(rows);
-        assertTrue(csv.startsWith("Issue Type,Summary,Description,Acceptance Criteria,Priority,Components,Labels,Feature Link,Fix Version/s,Reporter,Story Points\n"));
+        assertTrue(csv.startsWith("Issue Type,Summary,Description,Acceptance Criteria,Priority,Components,Labels,Feature Link,Fix Version/s,Reporter,Story Points\r\n"));
         assertTrue(csv.contains("\"Story\""));
         assertTrue(csv.contains("\"Generic App 1 - Discovery Session\""));
         assertFalse(csv.contains("\"APP1-01 - Discovery Session\""));

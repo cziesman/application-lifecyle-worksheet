@@ -124,7 +124,7 @@ public class StorySelectionService {
 
     public String csv(List<StoryExportRow> rows) {
         StringBuilder b = new StringBuilder();
-        b.append("Issue Type,Summary,Description,Acceptance Criteria,Priority,Components,Labels,Feature Link,Fix Version/s,Reporter,Story Points\n");
+        b.append("Issue Type,Summary,Description,Acceptance Criteria,Priority,Components,Labels,Feature Link,Fix Version/s,Reporter,Story Points\r\n");
         for (StoryExportRow row : rows) {
             b.append(csv(row.issueType())).append(',')
              .append(csv(row.summary())).append(',')
@@ -136,7 +136,7 @@ public class StorySelectionService {
              .append(csv(row.featureLink())).append(',')
              .append(csv(row.fixVersions())).append(',')
              .append(csv(row.reporter())).append(',')
-             .append(row.storyPoints()).append('\n');
+             .append(row.storyPoints()).append('\r').append('\n');
         }
         return b.toString();
     }
@@ -200,6 +200,7 @@ public class StorySelectionService {
     }
 
     private String csv(String value) {
-        return "\"" + (value == null ? "" : value.replace("\"", "\"\"")) + "\"";
+        String normalized = value == null ? "" : value.replace("\r\n", "\n").replace("\r", "\n").replace("\n", "\r\n");
+        return "\"" + normalized.replace("\"", "\"\"") + "\"";
     }
 }
