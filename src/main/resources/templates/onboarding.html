@@ -12,10 +12,6 @@
     <div><strong>Application Lifecycle</strong><span>Application Onboarding &amp; Migration Worksheet</span></div>
   </div>
   <nav class="nav" aria-label="Worksheet sections">
-    <a th:each="item : ${navigation}"
-       th:href="@{/{key}(key=${item.key})}"
-       th:text="${item.label}"
-       th:classappend="${item.key == page.key ? ' active' : ''}">Onboarding</a>
     <form action="/application" method="post" class="application-selector">
       <input type="hidden" name="page" th:value="${page.key}">
       <label for="applicationSelect">Application</label>
@@ -26,6 +22,10 @@
                 th:selected="${app.abbreviation == selectedApplication.abbreviation}">Generic App 1 (APP1)</option>
       </select>
     </form>
+    <a th:each="item : ${navigation}"
+         th:href="@{/{key}(key=${item.key})}"
+         th:text="${item.label}"
+         th:classappend="${item.key == page.key ? ' active' : ''}">Onboarding</a>
   </nav>
 </header>
 
